@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>빛의 반사 실험실 (오프라인 버전)</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg: #f5f5f5;
+            --sidebar: #ffffff;
+            --text: #1a1a1a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) {
+            body { flex-direction: row; }
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: 100%;
+            background: var(--sidebar);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+            max-height: 40vh;
+            z-index: 10;
+        }
+        @media (min-width: 1024px) {
+            #sidebar { 
+                width: 320px; 
+                height: 100vh; 
+                max-height: none;
+                border-right: 1px solid rgba(0,0,0,0.05);
+                border-bottom: none;
+                padding: 1.5rem;
+                gap: 1.5rem;
+            }
+        }
+
+        .header { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon {
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 { font-size: 1.25rem; font-weight: 700; }
+
+        .mode-selector {
+            display: flex;
+            background: #f1f1f1;
+            padding: 0.25rem;
+            border-radius: 0.75rem;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            background: transparent;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: white;
+            color: black;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stage-info {
+            background: #ecfdf5;
+            border: 1px solid #d1fae5;
+            padding: 1rem;
+            border-radius: 0.75rem;
+        }
+        .stage-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #059669;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        .stage-title { font-weight: 700; margin-bottom: 0.25rem; }
+        .stage-desc { font-size: 0.875rem; color: #4b5563; line-height: 1.4; }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+        .btn-primary { background: black; color: white; }
+        .btn-primary:hover { background: #333; }
+        .btn-outline { background: white; border: 1px solid #e5e7eb; color: #374151; }
+        .btn-outline:hover { background: #f9fafb; }
+
+        .controls {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.75rem;
+        }
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .controls-title { font-size: 0.75rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; }
+        .delete-btn { color: #ef4444; background: none; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 700; }
+
+        input[type=range] {
+            width: 100%;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+
+        /* Canvas Area */
+        #main {
+            flex: 1;
+            position: relative;
+            background: #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            min-height: 0;
+        }
+        #canvas-container {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 800 / 600;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .stats {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: 1px solid rgba(0,0,0,0.05);
+            pointer-events: none;
+        }
+
+        /* Success Overlay */
+        #success-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.1);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        .success-card {
+            background: var(--primary);
+            color: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes pop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .success-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 1.5rem; }
+        .next-btn {
+            background: white;
+            color: var(--primary);
+            padding: 0.75rem 2rem;
+            border-radius: 1rem;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            font-size: 1.125rem;
+        }
+
+        /* Info Modal */
+        #info-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 1rem;
+        }
+        .modal-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .modal-card h2 { margin-bottom: 1rem; }
+        .modal-card p { color: #4b5563; margin-bottom: 1.5rem; line-height: 1.5; }
+        .modal-btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 1rem;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 0.75rem;
+        }
+        .modal-btn-primary { background: var(--primary); color: white; }
+        .modal-btn-secondary { background: #f3f4f6; color: #1f2937; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <div class="header">
+            <div class="logo-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 2.5h3L12 7"/><path d="M11 14 9 16.5h3L10 19"/><path d="m15 14-2 2.5h3L14 19"/><path d="M19 10 17 12.5h3L18 15"/><path d="M5 10 3 12.5h3L4 15"/></svg>
+            </div>
+            <h1>빛의 반사 실험실</h1>
+        </div>
+
+        <div class="mode-selector">
+            <button id="mode-free" class="mode-btn active">자유 실험</button>
+            <button id="mode-stage" class="mode-btn">스테이지 모드</button>
+        </div>
+
+        <div id="stage-info-container" class="stage-info" style="display: none;">
+            <div id="stage-id-label" class="stage-label">STAGE 1 / 30</div>
+            <div id="stage-title" class="stage-title">첫 번째 반사</div>
+            <div id="stage-desc" class="stage-desc">거울 한 개를 이용해 목표를 맞춰보세요!</div>
+            <div id="stage-req" style="margin-top: 0.5rem; font-size: 0.75rem; font-weight: 700; color: #047857;"></div>
+        </div>
+
+        <div id="free-info" class="stage-info" style="background: #eff6ff; border-color: #dbeafe;">
+            <div class="stage-title" style="color: #1e40af;">자유 실험</div>
+            <div class="stage-desc" style="color: #1e3a8a;">거울을 자유롭게 배치하고 빛의 반사를 관찰해보세요. 입사각과 반사각의 관계를 탐구해볼 수 있습니다.</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button id="add-mirror-btn" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                거울 추가하기
+            </button>
+            <button id="reset-btn" class="btn btn-outline">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                초기화
+            </button>
+        </div>
+
+        <div id="mirror-controls" class="controls" style="display: none;">
+            <div class="controls-header">
+                <div class="controls-title">거울 조절</div>
+                <button id="delete-mirror-btn" class="delete-btn">삭제</button>
+            </div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: #6b7280;">회전 각도</label>
+            <input type="range" id="rotation-slider" min="0" max="360" value="0">
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #9ca3af; margin-top: 0.25rem;">
+                <span>0°</span>
+                <span id="rotation-value">0°</span>
+                <span>360°</span>
+            </div>
+        </div>
+
+        <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
+            <button id="sound-toggle" class="btn btn-outline" style="margin-bottom: 0.75rem; justify-content: flex-start; padding: 0.5rem 0.75rem;">
+                <div id="sound-icon-on">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                </div>
+                <div id="sound-icon-off" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                </div>
+                <span id="sound-text" style="font-size: 0.875rem;">사운드 켬</span>
+            </button>
+            <div id="status-text" style="font-size: 0.75rem; color: #9ca3af; display: flex; align-items: center; gap: 0.5rem;">
+                <div id="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #d1d5db;"></div>
+                <span>목표를 조준하세요</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="canvas-container">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div class="stats">반사 횟수: <span id="reflection-count" style="color: #059669;">0</span></div>
+            <div id="success-overlay">
+                <div class="success-card">
+                    <div id="success-msg" class="success-title">스테이지 클리어!</div>
+                    <button id="next-stage-btn" class="next-btn">다음 스테이지로</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-modal">
+        <div class="modal-card">
+            <div style="width: 64px; height: 64px; background: #d1fae5; color: #059669; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 2.5h3L12 7"/><path d="M11 14 9 16.5h3L10 19"/><path d="m15 14-2 2.5h3L14 19"/><path d="M19 10 17 12.5h3L18 15"/><path d="M5 10 3 12.5h3L4 15"/></svg>
+            </div>
+            <h2>빛의 반사 실험실</h2>
+            <p>거울에 부딪힌 빛은 어떻게 될까요?<br><b>입사각</b>과 <b>반사각</b>이 항상 같다는 <b>빛의 반사 법칙</b>을 직접 실험하며 배워보세요.</p>
+            <button id="start-free-btn" class="modal-btn modal-btn-secondary">자유 실험 시작</button>
+            <button id="start-stage-btn" class="modal-btn modal-btn-primary">스테이지 모드 도전</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Data ---
+        const STAGES = [
+            { id: 1, title: "첫 번째 반사", description: "거울 한 개를 이용해 목표를 맞춰보세요!", target: { x: 700, y: 100, radius: 25 }, laser: { x: 50, y: 500, rotation: -45 }, initialMirrors: [{ id: 's1-m1', x: 400, y: 300, rotation: 0, length: 100 }], maxMirrors: 1, requiredReflections: 1, obstacles: [{ x: 350, y: 100, width: 100, height: 20 }] },
+            { id: 2, title: "지그재그 반사", description: "거울 두 개를 이용해 목표를 맞춰보세요!", target: { x: 50, y: 100, radius: 25 }, laser: { x: 50, y: 500, rotation: -45 }, initialMirrors: [{ id: 's2-m1', x: 400, y: 400, rotation: 45, length: 100 }, { id: 's2-m2', x: 400, y: 200, rotation: -45, length: 100 }], maxMirrors: 2, requiredReflections: 1, obstacles: [{ x: 300, y: 250, width: 200, height: 100 }] },
+            { id: 3, title: "반사 법칙의 달인", description: "최소 3번의 반사를 거쳐 목표를 맞춰보세요!", target: { x: 700, y: 500, radius: 25 }, laser: { x: 100, y: 100, rotation: 45 }, initialMirrors: [{ id: 's3-m1', x: 400, y: 100, rotation: 0, length: 100 }, { id: 's3-m2', x: 700, y: 300, rotation: 90, length: 100 }, { id: 's3-m3', x: 400, y: 500, rotation: 0, length: 100 }], maxMirrors: 4, requiredReflections: 3, obstacles: [{ x: 300, y: 200, width: 200, height: 200 }] },
+            { id: 4, title: "코너 샷", description: "구석에 있는 목표를 향해 빛을 꺾어보세요.", target: { x: 750, y: 550, radius: 20 }, laser: { x: 50, y: 50, rotation: 0 }, initialMirrors: [{ id: 's4-m1', x: 750, y: 50, rotation: 45, length: 100 }], maxMirrors: 2, requiredReflections: 1, obstacles: [{ x: 200, y: 0, width: 20, height: 400 }] },
+            { id: 5, title: "더블 바운스", description: "최소 2번의 반사가 필요합니다.", target: { x: 400, y: 50, radius: 25 }, laser: { x: 400, y: 550, rotation: -90 }, initialMirrors: [{ id: 's5-m1', x: 200, y: 300, rotation: 0, length: 100 }, { id: 's5-m2', x: 600, y: 300, rotation: 0, length: 100 }], maxMirrors: 3, requiredReflections: 2, obstacles: [{ x: 350, y: 200, width: 100, height: 200 }] },
+            { id: 6, title: "좁은 틈새", description: "거울을 정교하게 배치해 좁은 길을 통과하세요.", target: { x: 700, y: 100, radius: 15 }, laser: { x: 100, y: 300, rotation: 0 }, initialMirrors: [{ id: 's6-m1', x: 400, y: 100, rotation: 90, length: 100 }, { id: 's6-m2', x: 400, y: 500, rotation: 90, length: 100 }], maxMirrors: 2, requiredReflections: 1, obstacles: [{ x: 380, y: 200, width: 40, height: 200 }] },
+            { id: 7, title: "U자형 경로", description: "빛을 완전히 되돌려 보내세요.", target: { x: 100, y: 100, radius: 25 }, laser: { x: 100, y: 500, rotation: -90 }, initialMirrors: [{ id: 's7-m1', x: 400, y: 300, rotation: 45, length: 100 }, { id: 's7-m2', x: 400, y: 100, rotation: -45, length: 100 }], maxMirrors: 3, requiredReflections: 2, obstacles: [{ x: 200, y: 200, width: 100, height: 200 }] },
+            { id: 8, title: "삼각형 반사", description: "빛을 삼각형 모양으로 반사시켜 보세요.", target: { x: 400, y: 400, radius: 25 }, laser: { x: 400, y: 550, rotation: -90 }, initialMirrors: [{ id: 's8-m1', x: 200, y: 100, rotation: 30, length: 100 }, { id: 's8-m2', x: 600, y: 100, rotation: -30, length: 100 }], maxMirrors: 3, requiredReflections: 3, obstacles: [{ x: 350, y: 250, width: 100, height: 50 }] },
+            { id: 9, title: "먼 거리 조준", description: "먼 곳에 있는 작은 목표를 맞추세요.", target: { x: 780, y: 20, radius: 10 }, laser: { x: 20, y: 580, rotation: -45 }, initialMirrors: [{ id: 's9-m1', x: 400, y: 300, rotation: 0, length: 100 }], maxMirrors: 2, requiredReflections: 1, obstacles: [{ x: 200, y: 200, width: 400, height: 20 }] },
+            { id: 10, title: "사각지대", description: "레이저 바로 뒤에 있는 목표를 맞추세요.", target: { x: 50, y: 550, radius: 25 }, laser: { x: 50, y: 500, rotation: 0 }, initialMirrors: [{ id: 's10-m1', x: 700, y: 500, rotation: 90, length: 100 }, { id: 's10-m2', x: 700, y: 550, rotation: 90, length: 100 }], maxMirrors: 3, requiredReflections: 2, obstacles: [{ x: 100, y: 520, width: 500, height: 10 }] },
+            { id: 11, title: "정사각형 경로", description: "최소 4번의 반사가 필요합니다.", target: { x: 200, y: 200, radius: 20 }, laser: { x: 200, y: 500, rotation: -90 }, initialMirrors: [{ id: 's11-m1', x: 600, y: 200, rotation: 45, length: 100 }, { id: 's11-m2', x: 600, y: 400, rotation: -45, length: 100 }, { id: 's11-m3', x: 200, y: 400, rotation: 45, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 300, y: 250, width: 200, height: 100 }] },
+            { id: 12, title: "엇갈린 거울", description: "거울 사이를 통과해 목표에 도달하세요.", target: { x: 700, y: 500, radius: 20 }, laser: { x: 100, y: 300, rotation: 0 }, initialMirrors: [{ id: 's12-m1', x: 300, y: 200, rotation: 0, length: 100 }, { id: 's12-m2', x: 500, y: 400, rotation: 0, length: 100 }], maxMirrors: 3, requiredReflections: 1, obstacles: [{ x: 350, y: 280, width: 100, height: 40 }] },
+            { id: 13, title: "반사 미로 1", description: "복잡한 경로를 설계해 보세요.", target: { x: 400, y: 550, radius: 20 }, laser: { x: 400, y: 50, rotation: 90 }, initialMirrors: [{ id: 's13-m1', x: 200, y: 200, rotation: 45, length: 100 }, { id: 's13-m2', x: 600, y: 400, rotation: -45, length: 100 }], maxMirrors: 4, requiredReflections: 3, obstacles: [{ x: 300, y: 300, width: 200, height: 50 }] },
+            { id: 14, title: "정밀 각도", description: "각도를 아주 세밀하게 조절해야 합니다.", target: { x: 750, y: 50, radius: 10 }, laser: { x: 50, y: 550, rotation: -45 }, initialMirrors: [{ id: 's14-m1', x: 400, y: 300, rotation: 10, length: 100 }], maxMirrors: 2, requiredReflections: 1, obstacles: [{ x: 600, y: 100, width: 50, height: 400 }] },
+            { id: 15, title: "W자 반사", description: "W 모양으로 빛을 튕겨보세요.", target: { x: 700, y: 100, radius: 25 }, laser: { x: 100, y: 100, rotation: 45 }, initialMirrors: [{ id: 's15-m1', x: 250, y: 500, rotation: 0, length: 100 }, { id: 's15-m2', x: 400, y: 100, rotation: 0, length: 100 }, { id: 's15-m3', x: 550, y: 500, rotation: 0, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 300, y: 200, width: 200, height: 200 }] },
+            { id: 16, title: "중앙 돌파", description: "중앙을 거쳐 목표로 향하세요.", target: { x: 700, y: 300, radius: 20 }, laser: { x: 100, y: 300, rotation: 0 }, initialMirrors: [{ id: 's16-m1', x: 400, y: 300, rotation: 45, length: 100 }], maxMirrors: 3, requiredReflections: 2, obstacles: [{ x: 300, y: 0, width: 20, height: 600 }] },
+            { id: 17, title: "벽 타기", description: "가장자리를 따라 빛을 이동시키세요.", target: { x: 150, y: 50, radius: 20 }, laser: { x: 50, y: 50, rotation: 90 }, initialMirrors: [{ id: 's17-m1', x: 50, y: 550, rotation: 45, length: 100 }, { id: 's17-m2', x: 750, y: 550, rotation: -45, length: 100 }, { id: 's17-m3', x: 750, y: 50, rotation: 45, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 150, y: 150, width: 500, height: 300 }] },
+            { id: 18, title: "다이아몬드", description: "다이아몬드 형태로 반사시키세요.", target: { x: 400, y: 100, radius: 20 }, laser: { x: 400, y: 500, rotation: -90 }, initialMirrors: [{ id: 's18-m1', x: 600, y: 300, rotation: -45, length: 100 }, { id: 's18-m2', x: 400, y: 500, rotation: 45, length: 100 }, { id: 's18-m3', x: 200, y: 300, rotation: -45, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 350, y: 250, width: 100, height: 100 }] },
+            { id: 19, title: "좁은 터널", description: "두 거울 사이의 좁은 틈을 이용하세요.", target: { x: 750, y: 100, radius: 15 }, laser: { x: 50, y: 300, rotation: 0 }, initialMirrors: [{ id: 's19-m1', x: 400, y: 280, rotation: 0, length: 100 }, { id: 's19-m2', x: 400, y: 320, rotation: 0, length: 100 }], maxMirrors: 3, requiredReflections: 1, obstacles: [{ x: 380, y: 0, width: 40, height: 250 }, { x: 380, y: 350, width: 40, height: 250 }] },
+            { id: 20, title: "반사 미로 2", description: "최소 5번의 반사가 필요합니다.", target: { x: 100, y: 300, radius: 20 }, laser: { x: 100, y: 500, rotation: -90 }, initialMirrors: [{ id: 's20-m1', x: 300, y: 300, rotation: 45, length: 100 }, { id: 's20-m2', x: 300, y: 100, rotation: -45, length: 100 }, { id: 's20-m3', x: 600, y: 100, rotation: 45, length: 100 }, { id: 's20-m4', x: 600, y: 500, rotation: -45, length: 100 }], maxMirrors: 6, requiredReflections: 5, obstacles: [{ x: 400, y: 200, width: 100, height: 200 }] },
+            { id: 21, title: "나선형 경로", description: "안쪽으로 말려 들어가는 경로를 만드세요.", target: { x: 400, y: 350, radius: 15 }, laser: { x: 50, y: 50, rotation: 0 }, initialMirrors: [{ id: 's21-m1', x: 750, y: 50, rotation: 45, length: 100 }, { id: 's21-m2', x: 750, y: 550, rotation: -45, length: 100 }, { id: 's21-m3', x: 50, y: 550, rotation: 45, length: 100 }], maxMirrors: 6, requiredReflections: 5, obstacles: [{ x: 200, y: 200, width: 400, height: 100 }] },
+            { id: 22, title: "별 모양 도전", description: "복잡한 각도로 별 모양을 그려보세요.", target: { x: 400, y: 350, radius: 20 }, laser: { x: 400, y: 50, rotation: 72 }, initialMirrors: [{ id: 's22-m1', x: 600, y: 500, rotation: 0, length: 100 }, { id: 's22-m2', x: 200, y: 500, rotation: 0, length: 100 }], maxMirrors: 6, requiredReflections: 5, obstacles: [{ x: 380, y: 200, width: 40, height: 40 }] },
+            { id: 23, title: "크로스 오버", description: "빛의 경로가 서로 교차하게 만드세요.", target: { x: 700, y: 500, radius: 20 }, laser: { x: 100, y: 100, rotation: 45 }, initialMirrors: [{ id: 's23-m1', x: 400, y: 400, rotation: 0, length: 100 }, { id: 's23-m2', x: 400, y: 200, rotation: 0, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 300, y: 280, width: 200, height: 40 }] },
+            { id: 24, title: "무한 루프 근접", description: "거의 제자리로 돌아오는 경로를 만드세요.", target: { x: 700, y: 500, radius: 15 }, laser: { x: 100, y: 100, rotation: 0 }, initialMirrors: [{ id: 's24-m1', x: 700, y: 100, rotation: 90, length: 100 }, { id: 's24-m2', x: 700, y: 500, rotation: 0, length: 100 }, { id: 's24-m3', x: 100, y: 500, rotation: 90, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 200, y: 200, width: 400, height: 200 }] },
+            { id: 25, title: "정밀 지그재그", description: "6번 이상의 반사가 필요합니다.", target: { x: 700, y: 300, radius: 20 }, laser: { x: 100, y: 300, rotation: 0 }, initialMirrors: [{ id: 's25-m1', x: 200, y: 100, rotation: 0, length: 80 }, { id: 's25-m2', x: 300, y: 500, rotation: 0, length: 80 }, { id: 's25-m3', x: 400, y: 100, rotation: 0, length: 80 }, { id: 's25-m4', x: 500, y: 500, rotation: 0, length: 80 }, { id: 's25-m5', x: 600, y: 100, rotation: 0, length: 80 }], maxMirrors: 8, requiredReflections: 6, obstacles: [{ x: 150, y: 250, width: 500, height: 100 }] },
+            { id: 26, title: "거울의 성", description: "많은 거울을 효율적으로 배치하세요.", target: { x: 400, y: 400, radius: 15 }, laser: { x: 50, y: 50, rotation: 45 }, initialMirrors: [{ id: 's26-m1', x: 200, y: 200, rotation: 0, length: 100 }, { id: 's26-m2', x: 600, y: 200, rotation: 0, length: 100 }, { id: 's26-m3', x: 600, y: 400, rotation: 0, length: 100 }, { id: 's26-m4', x: 200, y: 400, rotation: 0, length: 100 }], maxMirrors: 10, requiredReflections: 7, obstacles: [{ x: 300, y: 250, width: 200, height: 100 }] },
+            { id: 27, title: "바늘구멍", description: "매우 좁은 통로를 여러 번 통과하세요.", target: { x: 750, y: 550, radius: 10 }, laser: { x: 50, y: 50, rotation: 0 }, initialMirrors: [{ id: 's27-m1', x: 400, y: 50, rotation: 45, length: 100 }, { id: 's27-m2', x: 400, y: 550, rotation: -45, length: 100 }], maxMirrors: 5, requiredReflections: 4, obstacles: [{ x: 0, y: 300, width: 350, height: 20 }, { x: 450, y: 300, width: 350, height: 20 }] },
+            { id: 28, title: "대각선 미로", description: "대각선 방향으로만 반사시켜 보세요.", target: { x: 100, y: 500, radius: 20 }, laser: { x: 700, y: 100, rotation: 180 }, initialMirrors: [{ id: 's28-m1', x: 400, y: 100, rotation: 45, length: 100 }, { id: 's28-m2', x: 400, y: 300, rotation: 45, length: 100 }, { id: 's28-m3', x: 400, y: 500, rotation: 45, length: 100 }], maxMirrors: 6, requiredReflections: 5, obstacles: [{ x: 100, y: 100, width: 200, height: 200 }, { x: 500, y: 300, width: 200, height: 200 }] },
+            { id: 29, title: "최종 관문 전야", description: "8번의 반사를 성공시키세요.", target: { x: 400, y: 450, radius: 15 }, laser: { x: 400, y: 50, rotation: 0 }, initialMirrors: [{ id: 's29-m1', x: 100, y: 100, rotation: 0, length: 100 }, { id: 's29-m2', x: 700, y: 100, rotation: 0, length: 100 }, { id: 's29-m3', x: 700, y: 500, rotation: 0, length: 100 }, { id: 's29-m4', x: 100, y: 500, rotation: 0, length: 100 }], maxMirrors: 10, requiredReflections: 8, obstacles: [{ x: 350, y: 250, width: 100, height: 100 }] },
+            { id: 30, title: "반사 법칙의 마스터", description: "10번의 반사를 거쳐 중앙의 목표를 맞추세요!", target: { x: 400, y: 300, radius: 10 }, laser: { x: 50, y: 50, rotation: 0 }, initialMirrors: [{ id: 's30-m1', x: 750, y: 50, rotation: 45, length: 100 }, { id: 's30-m2', x: 750, y: 550, rotation: -45, length: 100 }, { id: 's30-m3', x: 50, y: 550, rotation: 45, length: 100 }, { id: 's30-m4', x: 50, y: 150, rotation: -45, length: 100 }, { id: 's30-m5', x: 650, y: 150, rotation: 45, length: 100 }], maxMirrors: 12, requiredReflections: 10, obstacles: [{ x: 200, y: 200, width: 400, height: 20 }, { x: 200, y: 400, width: 400, height: 20 }] }
+        ];
+
+        // --- Audio ---
+        let audioEnabled = true;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!audioEnabled) return;
+            initAudio();
+            
+            const now = audioCtx.currentTime;
+            const masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            masterGain.gain.setValueAtTime(0.1, now);
+
+            if (type === 'select') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.connect(masterGain);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'hit') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                osc.connect(masterGain);
+                masterGain.gain.setValueAtTime(0.2, now);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'clear') {
+                const freqs = [440, 554.37, 659.25, 880];
+                freqs.forEach((f, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, now + i * 0.1);
+                    osc.connect(g);
+                    g.connect(masterGain);
+                    g.gain.setValueAtTime(0.1, now + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
+                    osc.start(now + i * 0.1);
+                    osc.stop(now + i * 0.1 + 0.3);
+                });
+            } else if (type === 'reflect') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, now);
+                osc.frequency.exponentialRampToValueAtTime(1600, now + 0.05);
+                osc.connect(masterGain);
+                masterGain.gain.setValueAtTime(0.05, now);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'delete') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.1);
+                osc.connect(masterGain);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'add') {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.linearRampToValueAtTime(660, now + 0.1);
+                osc.connect(masterGain);
+                masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+        }
+
+        document.getElementById('sound-toggle').addEventListener('click', () => {
+            audioEnabled = !audioEnabled;
+            document.getElementById('sound-icon-on').style.display = audioEnabled ? 'block' : 'none';
+            document.getElementById('sound-icon-off').style.display = audioEnabled ? 'none' : 'block';
+            document.getElementById('sound-text').textContent = audioEnabled ? '사운드 켬' : '사운드 끔';
+            if (audioEnabled) initAudio();
+        });
+
+        // --- State ---
+        let currentStageIndex = null;
+        let mirrors = [];
+        let laser = { x: 50, y: 300, rotation: 0 };
+        let target = { x: 700, y: 100, radius: 25 };
+        let obstacles = [];
+        let selectedId = null;
+        let isHit = false;
+        let isRotating = false;
+        let lastReflectionPath = "";
+        let draggingObj = null;
+        let dragOffset = { x: 0, y: 0 };
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const MAX_REFLECTIONS = 10;
+
+        // --- Utils ---
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const toDeg = (rad) => (rad * 180) / Math.PI;
+
+        function getIntersection(p1, p2, p3, p4) {
+            const dx12 = p2.x - p1.x;
+            const dy12 = p2.y - p1.y;
+            const dx34 = p4.x - p3.x;
+            const dy34 = p4.y - p3.y;
+            const denominator = dy34 * dx12 - dx34 * dy12;
+            if (denominator === 0) return null;
+            const t = (dx34 * (p1.y - p3.y) - dy34 * (p1.x - p3.x)) / denominator;
+            const u = (dx12 * (p1.y - p3.y) - dy12 * (p1.x - p3.x)) / denominator;
+            if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                return { x: p1.x + t * dx12, y: p1.y + t * dy12, t };
+            }
+            return null;
+        }
+
+        function getCircleIntersection(p1, p2, center, radius) {
+            const d = { x: p2.x - p1.x, y: p2.y - p1.y };
+            const f = { x: p1.x - center.x, y: p1.y - center.y };
+            const a = d.x * d.x + d.y * d.y;
+            const b = 2 * (f.x * d.x + f.y * d.y);
+            const c = f.x * f.x + f.y * f.y - radius * radius;
+            let disc = b * b - 4 * a * c;
+            if (disc < 0) return null;
+            disc = Math.sqrt(disc);
+            const t1 = (-b - disc) / (2 * a);
+            if (t1 >= 0 && t1 <= 1) return t1;
+            return null;
+        }
+
+        // --- Core Logic ---
+        function calculateRays() {
+            const segments = [];
+            let currentStart = { x: laser.x, y: laser.y };
+            let currentAngle = laser.rotation;
+
+            for (let i = 0; i < MAX_REFLECTIONS; i++) {
+                const rad = toRad(currentAngle);
+                const rayEnd = {
+                    x: currentStart.x + Math.cos(rad) * 2000,
+                    y: currentStart.y + Math.sin(rad) * 2000,
+                };
+
+                let closestHit = null;
+
+                // Mirrors
+                mirrors.forEach(m => {
+                    const mRad = toRad(m.rotation);
+                    const mHalfLen = m.length / 2;
+                    const mStart = { x: m.x - Math.cos(mRad) * mHalfLen, y: m.y - Math.sin(mRad) * mHalfLen };
+                    const mEnd = { x: m.x + Math.cos(mRad) * mHalfLen, y: m.y + Math.sin(mRad) * mHalfLen };
+                    const hit = getIntersection(currentStart, rayEnd, mStart, mEnd);
+                    if (hit && hit.t > 0.001) {
+                        if (!closestHit || hit.t < closestHit.t) closestHit = { ...hit, type: 'mirror', mirror: m };
+                    }
+                });
+
+                // Obstacles
+                obstacles.forEach(obs => {
+                    const edges = [
+                        { p1: { x: obs.x, y: obs.y }, p2: { x: obs.x + obs.width, y: obs.y } },
+                        { p1: { x: obs.x + obs.width, y: obs.y }, p2: { x: obs.x + obs.width, y: obs.y + obs.height } },
+                        { p1: { x: obs.x + obs.width, y: obs.y + obs.height }, p2: { x: obs.x, y: obs.y + obs.height } },
+                        { p1: { x: obs.x, y: obs.y + obs.height }, p2: { x: obs.x, y: obs.y } }
+                    ];
+                    edges.forEach(edge => {
+                        const hit = getIntersection(currentStart, rayEnd, edge.p1, edge.p2);
+                        if (hit && hit.t > 0.001) {
+                            if (!closestHit || hit.t < closestHit.t) closestHit = { ...hit, type: 'obstacle' };
+                        }
+                    });
+                });
+
+                // Target
+                const t = getCircleIntersection(currentStart, rayEnd, target, target.radius);
+                if (t !== null && t > 0.001) {
+                    if (!closestHit || t < closestHit.t) {
+                        segments.push({ start: currentStart, end: { x: currentStart.x + t * (rayEnd.x - currentStart.x), y: currentStart.y + t * (rayEnd.y - currentStart.y) }, hitTarget: true });
+                        return segments;
+                    }
+                }
+
+                if (closestHit) {
+                    if (closestHit.type === 'mirror') {
+                        segments.push({ 
+                            start: currentStart, 
+                            end: closestHit, 
+                            normal: closestHit.mirror.rotation + 90,
+                            mirrorId: closestHit.mirror.id 
+                        });
+                        currentStart = closestHit;
+                        currentAngle = (2 * closestHit.mirror.rotation - currentAngle) % 360;
+                    } else {
+                        segments.push({ start: currentStart, end: closestHit, hitObstacle: true });
+                        return segments;
+                    }
+                } else {
+                    // Hit boundary
+                    const edges = [
+                        { p1: { x: 0, y: 0 }, p2: { x: CANVAS_WIDTH, y: 0 } },
+                        { p1: { x: CANVAS_WIDTH, y: 0 }, p2: { x: CANVAS_WIDTH, y: CANVAS_HEIGHT } },
+                        { p1: { x: CANVAS_WIDTH, y: CANVAS_HEIGHT }, p2: { x: 0, y: CANVAS_HEIGHT } },
+                        { p1: { x: 0, y: CANVAS_HEIGHT }, p2: { x: 0, y: 0 } }
+                    ];
+                    let boundaryHit = null;
+                    edges.forEach(edge => {
+                        const hit = getIntersection(currentStart, rayEnd, edge.p1, edge.p2);
+                        if (hit && hit.t > 0.001) {
+                            if (!boundaryHit || hit.t < boundaryHit.t) boundaryHit = hit;
+                        }
+                    });
+                    segments.push({ start: currentStart, end: boundaryHit || rayEnd });
+                    break;
+                }
+            }
+            return segments;
+        }
+
+        // --- Rendering ---
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Grid
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < CANVAS_WIDTH; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke(); }
+            for (let y = 0; y < CANVAS_HEIGHT; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
+
+            // Obstacles
+            ctx.fillStyle = '#18181b';
+            obstacles.forEach(obs => {
+                ctx.beginPath();
+                ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 4);
+                ctx.fill();
+            });
+
+            // Target
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#fee2e2';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#fecaca';
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius * 0.2, 0, Math.PI * 2);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+
+            // Rays
+            const rays = calculateRays();
+            const hit = rays.some(r => r.hitTarget);
+            const reflections = rays.filter(r => r.mirrorId !== undefined).length;
+            const stage = currentStageIndex !== null ? STAGES[currentStageIndex] : null;
+            const meetsReq = stage ? (reflections >= (stage.requiredReflections || 0)) : true;
+
+            if (hit) {
+                ctx.beginPath();
+                ctx.arc(target.x, target.y, target.radius + 5, 0, Math.PI * 2);
+                ctx.strokeStyle = meetsReq ? '#10b981' : '#f59e0b';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                if (!meetsReq && stage) {
+                    ctx.fillStyle = '#d97706';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`반사 부족! (${reflections}/${stage.requiredReflections})`, target.x, target.y - target.radius - 15);
+                }
+            }
+
+            rays.forEach(ray => {
+                ctx.beginPath();
+                ctx.moveTo(ray.start.x, ray.start.y);
+                ctx.lineTo(ray.end.x, ray.end.y);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.8;
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+
+                if (ray.normal !== undefined) {
+                    ctx.save();
+                    ctx.translate(ray.end.x, ray.end.y);
+                    ctx.rotate(toRad(ray.normal));
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(30, 0);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#64748b';
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText('법선', 35, 5);
+                    ctx.restore();
+                }
+            });
+
+            const currentPath = rays.filter(r => r.mirrorId !== undefined).map(r => r.mirrorId).join(',');
+            if (currentPath !== lastReflectionPath) {
+                if (currentPath.length > 0) {
+                    playSound('reflect');
+                }
+                lastReflectionPath = currentPath;
+            }
+            document.getElementById('reflection-count').textContent = reflections;
+
+            // ... (Laser and Mirrors drawing code remains same) ...
+            // Laser
+            ctx.save();
+            ctx.translate(laser.x, laser.y);
+            ctx.rotate(toRad(laser.rotation));
+            ctx.fillStyle = '#3f3f46';
+            ctx.beginPath(); ctx.roundRect(-30, -10, 40, 20, 4); ctx.fill();
+            ctx.fillStyle = '#71717a';
+            ctx.beginPath(); ctx.roundRect(10, -6, 10, 12, 2); ctx.fill();
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+
+            if (selectedId === 'laser') {
+                ctx.beginPath();
+                ctx.arc(40, 0, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('↻', 40, 4);
+            }
+            ctx.restore();
+
+            // Mirrors
+            mirrors.forEach(m => {
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                ctx.rotate(toRad(m.rotation));
+                
+                if (selectedId === m.id) {
+                    ctx.shadowColor = '#3b82f6';
+                    ctx.shadowBlur = 10;
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                }
+                
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath(); ctx.roundRect(-m.length / 2, -3, m.length, 6, 2); ctx.fill(); ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(-m.length / 2, 3); ctx.lineTo(m.length / 2, 3); ctx.stroke();
+
+                if (selectedId === m.id) {
+                    const handleX = m.length / 2 + 15;
+                    ctx.beginPath();
+                    ctx.arc(handleX, 0, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('↻', handleX, 4);
+                }
+                ctx.restore();
+            });
+
+            // Check Hit and Requirements
+            if (hit) {
+                if (meetsReq) {
+                    if (!isHit) {
+                        isHit = true;
+                        playSound('hit');
+                        setTimeout(() => playSound('clear'), 300);
+                        document.getElementById('status-dot').style.background = '#10b981';
+                        document.getElementById('status-text').children[1].textContent = '목표 명중!';
+                        document.getElementById('success-overlay').style.display = 'flex';
+                        if (currentStageIndex === null) {
+                            document.getElementById('success-msg').textContent = '목표 명중!';
+                            document.getElementById('next-stage-btn').style.display = 'none';
+                        } else {
+                            document.getElementById('success-msg').textContent = '스테이지 클리어!';
+                            document.getElementById('next-stage-btn').style.display = 'block';
+                        }
+                    }
+                } else {
+                    isHit = false;
+                    document.getElementById('status-dot').style.background = '#f59e0b';
+                    document.getElementById('status-text').children[1].textContent = `반사가 부족합니다! (${reflections}/${stage.requiredReflections})`;
+                    document.getElementById('success-overlay').style.display = 'none';
+                }
+            } else {
+                isHit = false;
+                document.getElementById('status-dot').style.background = '#d1d5db';
+                document.getElementById('status-text').children[1].textContent = '목표를 조준하세요';
+                document.getElementById('success-overlay').style.display = 'none';
+            }
+        }
+
+        // --- Interaction ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function handleDown(e) {
+            if (e.type === 'touchstart') {
+                // Only prevent default if we're touching the canvas to allow scrolling elsewhere
+                if (e.target === canvas) e.preventDefault();
+            }
+            
+            const pos = getMousePos(e);
+            
+            // Check mirrors
+            for (let i = mirrors.length - 1; i >= 0; i--) {
+                const m = mirrors[i];
+                
+                // Check rotation handle first if selected
+                if (selectedId === m.id) {
+                    const mRad = toRad(m.rotation);
+                    const hX = m.x + Math.cos(mRad) * (m.length / 2 + 15);
+                    const hY = m.y + Math.sin(mRad) * (m.length / 2 + 15);
+                    if (Math.hypot(pos.x - hX, pos.y - hY) < 25) { // Increased hit area for touch
+                        isRotating = true;
+                        draggingObj = m;
+                        return;
+                    }
+                }
+
+                const dist = Math.hypot(pos.x - m.x, pos.y - m.y);
+                if (dist < 40) { // Increased hit area for touch
+                    selectedId = m.id;
+                    draggingObj = m;
+                    isRotating = false;
+                    dragOffset = { x: m.x - pos.x, y: m.y - pos.y };
+                    updateControls();
+                    draw();
+                    return;
+                }
+            }
+
+            // Check laser
+            if (selectedId === 'laser') {
+                const lRad = toRad(laser.rotation);
+                const hX = laser.x + Math.cos(lRad) * 40;
+                const hY = laser.y + Math.sin(lRad) * 40;
+                if (Math.hypot(pos.x - hX, pos.y - hY) < 25) { // Increased hit area for touch
+                    isRotating = true;
+                    draggingObj = laser;
+                    return;
+                }
+            }
+
+            const laserDist = Math.hypot(pos.x - laser.x, pos.y - laser.y);
+            if (laserDist < 40) { // Increased hit area for touch
+                selectedId = 'laser';
+                draggingObj = laser;
+                isRotating = false;
+                dragOffset = { x: laser.x - pos.x, y: laser.y - pos.y };
+                updateControls();
+                draw();
+                return;
+            }
+
+            // Check target (only in free mode)
+            if (currentStageIndex === null) {
+                const targetDist = Math.hypot(pos.x - target.x, pos.y - target.y);
+                if (targetDist < target.radius + 10) { // Increased hit area for touch
+                    selectedId = 'target';
+                    draggingObj = target;
+                    isRotating = false;
+                    dragOffset = { x: target.x - pos.x, y: target.y - pos.y };
+                    updateControls();
+                    draw();
+                    return;
+                }
+            }
+
+            selectedId = null;
+            updateControls();
+            draw();
+        }
+
+        function handleMove(e) {
+            if (!draggingObj) return;
+            if (e.type === 'touchmove') e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            if (isRotating) {
+                const angle = Math.atan2(pos.y - draggingObj.y, pos.x - draggingObj.x);
+                let deg = Math.round(toDeg(angle));
+                if (deg < 0) deg += 360;
+                draggingObj.rotation = deg;
+                updateControls();
+            } else {
+                draggingObj.x = pos.x + dragOffset.x;
+                draggingObj.y = pos.y + dragOffset.y;
+            }
+            draw();
+        }
+
+        function handleUp() {
+            draggingObj = null;
+            isRotating = false;
+        }
+
+        canvas.addEventListener('mousedown', handleDown);
+        canvas.addEventListener('touchstart', handleDown, { passive: false });
+        
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        
+        window.addEventListener('mouseup', handleUp);
+        window.addEventListener('touchend', handleUp);
+
+        function updateControls() {
+            const controls = document.getElementById('mirror-controls');
+            if (selectedId && selectedId !== 'target') {
+                controls.style.display = 'block';
+                const obj = selectedId === 'laser' ? laser : mirrors.find(m => m.id === selectedId);
+                document.getElementById('rotation-slider').value = obj.rotation;
+                document.getElementById('rotation-value').textContent = obj.rotation + '°';
+                document.getElementById('delete-mirror-btn').style.display = selectedId === 'laser' ? 'none' : 'block';
+            } else {
+                controls.style.display = 'none';
+            }
+        }
+
+        document.getElementById('rotation-slider').addEventListener('input', e => {
+            if (!selectedId) return;
+            const val = parseInt(e.target.value);
+            const obj = selectedId === 'laser' ? laser : mirrors.find(m => m.id === selectedId);
+            if (obj) {
+                obj.rotation = val;
+                document.getElementById('rotation-value').textContent = val + '°';
+                draw();
+            }
+        });
+
+        document.getElementById('delete-mirror-btn').addEventListener('click', () => {
+            if (selectedId && selectedId !== 'laser') {
+                playSound('delete');
+                mirrors = mirrors.filter(m => m.id !== selectedId);
+                selectedId = null;
+                updateControls();
+                draw();
+            }
+        });
+
+        document.getElementById('add-mirror-btn').addEventListener('click', () => {
+            const stage = currentStageIndex !== null ? STAGES[currentStageIndex] : null;
+            if (stage && stage.maxMirrors && mirrors.length >= stage.maxMirrors) {
+                alert(`이 스테이지에서는 거울을 최대 ${stage.maxMirrors}개까지만 사용할 수 있습니다.`);
+                return;
+            }
+            playSound('add');
+            const newMirror = { id: Date.now().toString(), x: 400, y: 300, rotation: 0, length: 100 };
+            mirrors.push(newMirror);
+            selectedId = newMirror.id;
+            updateControls();
+            draw();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            loadStage(currentStageIndex);
+        });
+
+        // --- Stage Management ---
+        function loadStage(index) {
+            currentStageIndex = index;
+            if (index === null) {
+                document.getElementById('mode-free').classList.add('active');
+                document.getElementById('mode-stage').classList.remove('active');
+                document.getElementById('stage-info-container').style.display = 'none';
+                document.getElementById('free-info').style.display = 'block';
+                
+                mirrors = [{ id: 'm1', x: 400, y: 300, rotation: 45, length: 100 }];
+                laser = { x: 50, y: 300, rotation: 0 };
+                target = { x: 700, y: 100, radius: 25 };
+                obstacles = [];
+            } else {
+                document.getElementById('mode-free').classList.remove('active');
+                document.getElementById('mode-stage').classList.add('active');
+                document.getElementById('stage-info-container').style.display = 'block';
+                document.getElementById('free-info').style.display = 'none';
+
+                const s = STAGES[index];
+                document.getElementById('stage-id-label').textContent = `STAGE ${s.id} / ${STAGES.length}`;
+                document.getElementById('stage-title').textContent = s.title;
+                document.getElementById('stage-desc').textContent = s.description;
+                document.getElementById('stage-req').textContent = s.requiredReflections ? `필요 반사 횟수: ${s.requiredReflections}회 이상` : '';
+
+                mirrors = JSON.parse(JSON.stringify(s.initialMirrors));
+                laser = JSON.parse(JSON.stringify(s.laser));
+                target = JSON.parse(JSON.stringify(s.target));
+                obstacles = JSON.parse(JSON.stringify(s.obstacles || []));
+            }
+            lastReflectionPath = "";
+            selectedId = null;
+            isHit = false;
+            updateControls();
+            draw();
+        }
+
+        document.getElementById('mode-free').addEventListener('click', () => loadStage(null));
+        document.getElementById('mode-stage').addEventListener('click', () => loadStage(0));
+        document.getElementById('next-stage-btn').addEventListener('click', () => {
+            if (currentStageIndex < STAGES.length - 1) loadStage(currentStageIndex + 1);
+            else loadStage(null);
+        });
+
+        document.getElementById('start-free-btn').addEventListener('click', () => {
+            initAudio();
+            document.getElementById('info-modal').style.display = 'none';
+            loadStage(null);
+        });
+        document.getElementById('start-stage-btn').addEventListener('click', () => {
+            initAudio();
+            document.getElementById('info-modal').style.display = 'none';
+            loadStage(0);
+        });
+
+        // Initial Draw
+        draw();
+    </script>
+</body>
+</html>
